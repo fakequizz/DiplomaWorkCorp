@@ -1,5 +1,5 @@
-from sqlalchemy import Column, String, Integer, Text
-from database import Base
+from sqlalchemy import Column, Integer, String, Text
+from database import Base  # Importing Base from database.py
 
 class LogEntry(Base):
     __tablename__ = "logs"
@@ -7,7 +7,7 @@ class LogEntry(Base):
     event_type = Column(String)
     file_path = Column(String, nullable=True)
     email_content = Column(String, nullable=True)
-
+    
 class SecurityPolicy(Base):
     __tablename__ = "security_policies"
     id = Column(Integer, primary_key=True, index=True)

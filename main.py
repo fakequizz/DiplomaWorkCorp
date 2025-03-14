@@ -1,39 +1,46 @@
-from fastapi import FastAPI, Form, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.orm import Session
-from database import SessionLocal, LogEntry
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from starlette.requests import Request
+from fastapi.responses import HTMLResponse  # Добавьте этот импорт
+from routes.auth import auth_router
+from routes.logs import logs_router
+from routes.policies import policies_router
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import declarative_base
+from fastapi.templating import Jinja2Templates  # Добавьте этот импорт
+from starlette.requests import Request  # Импортируем Request
+from fastapi.responses import HTMLResponse
+
 
 app = FastAPI()
 
-# Подключаем HTML-шаблоны
+# Подключаем статику и шаблоны
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Создаем объект для работы с шаблонами
 templates = Jinja2Templates(directory="templates")
 
-# Функция для получения сессии БД
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Подключаем маршруты
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+app.include_router(logs_router, prefix="/logs", tags=["Logs"])
+app.include_router(policies_router, prefix="/policies", tags=["Policies"])
 
-# Главная страница (вход)
-@app.get("/", response_class=HTMLResponse)
-def login_page(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+@app.get("/", response_class=HTMLResponse)  # Теперь это будет работать
+async def home(request: Request):
+    """Переход на страницу входа"""
+    return templates.TemplateResponse("index.html", {"request": request, "error": None})
 
-# Проверка логина
-@app.post("/login")
-def login(username: str = Form(...), password: str = Form(...)):
-    if username == "admin" and password == "admin123":
-        return RedirectResponse(url="/logs_page", status_code=303)
-    else:
-        return RedirectResponse(url="/", status_code=303)
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    # Render the admin dashboard template
+    return templates.TemplateResponse("admin.html", {"request": request})
 
-# Журнал событий
-@app.get("/logs_page", response_class=HTMLResponse)
-def logs_page(request: Request, db: Session = Depends(get_db)):
-    logs = db.query(LogEntry).all()
-    return templates.TemplateResponse("logs.html", {"request": request, "logs": logs})
+Base = declarative_base()
+
+class LogEntry(Base):
+    __tablename__ = "logs"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String)
+    file_path = Column(String, nullable=True)
+    email_content = Column(String, nullable=True)

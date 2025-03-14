@@ -1,38 +1,45 @@
 from fastapi import APIRouter, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from database import get_db
+from database import SessionLocal
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
 from models import User
+from passlib.context import CryptContext  # Для хэширования пароля
 
-router = APIRouter()
+# Инициализация маршрута и шаблонов
+auth_router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
-@router.get("/", response_class=HTMLResponse)
-def login_page():
-    return """
-    <html>
-    <head>
-        <title>Login</title>
-        <link rel="stylesheet" type="text/css" href="/static/styles.css">
-    </head>
-    <body>
-        <div class="login-container">
-            <h2>Login</h2>
-            <form method="post" action="/login">
-                <input type="text" name="username" placeholder="Username" required><br>
-                <input type="password" name="password" placeholder="Password" required><br>
-                <button class="btn" type="submit">Login</button>
-            </form>
-        </div>
-    </body>
-    </html>
-    """
+# Хэширование пароля
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-@router.post("/login")
-def login(username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username, User.password == password).first()
+def get_password_hash(password: str):
+    return pwd_context.hash(password)
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@auth_router.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "error": None})
+
+@auth_router.post("/login")
+async def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    print(f"Attempting login for {username}")  # Логируем попытку входа
+    user = db.query(User).filter(User.username == username).first()
+    
     if user:
-        if user.role == "admin":
-            return RedirectResponse(url="/admin_dashboard", status_code=303)
-        else:
-            return RedirectResponse(url="/staff_dashboard", status_code=303)
-    return "Invalid credentials. Try again."
+        print(f"User found: {user.username}")  # Логируем, что пользователь найден
+    if user and verify_password(password, user.password):
+        print("Login successful!")
+        return RedirectResponse(url="/admin", status_code=303)  # Переход на админку
+    print("Invalid credentials")
+    return templates.TemplateResponse("index.html", {"request": request, "error": "Invalid credentials"})
