@@ -10,7 +10,6 @@ from fastapi.templating import Jinja2Templates  # Добавьте этот им
 from starlette.requests import Request  # Импортируем Request
 from fastapi.responses import HTMLResponse
 
-
 app = FastAPI()
 
 # Подключаем статику и шаблоны

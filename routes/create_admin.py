@@ -1,18 +1,24 @@
 from models import User
 from database import SessionLocal
-from auth import get_password_hash  # Импортируем функцию для хэширования пароля
+from passlib.context import CryptContext  # Для хеширования пароля
 
-# Создаем сессию с базой данных
+# Настройка bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str):
+    return pwd_context.hash(password)
+
+# Открываем сессию
 db = SessionLocal()
 
-# Хэшируем пароль
-hashed_password = get_password_hash('admin')  # Замените 'admin' на нужный вам пароль
+# Хешируем пароль перед сохранением
+hashed_password = get_password_hash("admin")
 
-# Создаем пользователя admin
+# Создаем пользователя
 admin_user = User(username="admin", password=hashed_password, role="admin")
 
-# Добавляем в базу данных
+# Добавляем в БД
 db.add(admin_user)
 db.commit()
 
-print("Admin user created successfully!")
+print("✅ Админ успешно добавлен!")
